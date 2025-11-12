@@ -1,0 +1,54 @@
+# Ignore Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data files (large)
+data/raw/*.mp4
+data/raw/*.avi
+data/raw/*.mov
+data/raw/*.mkv
+data/examples/*.mp4
+data/examples/*.avi
+
+# Model files (large)
+models/*.pkl
+models/*.onnx
+models/*.pth
+models/*.h5
+
+# Output
+output/
+*.log
+
+# Temporary files
+*.tmp
+temp/
+.streamlit/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Distribution
+dist/
+build/
+*.egg-info/
