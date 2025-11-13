@@ -175,6 +175,7 @@ class PoseExtractor:
             Annotated frame
         """
         annotated_frame = frame.copy()
+        height, width = annotated_frame.shape[:2]
         
         for pose in poses:
             # Draw bounding box
@@ -194,8 +195,29 @@ class PoseExtractor:
                 2,
             )
             
-            # Draw pose skeleton
-            # TODO: Implement proper skeleton drawing using MediaPipe utilities
+            # Convert normalized landmarks to pixel coordinates once per pose
+            pixel_landmarks = []
+            for idx, (lx, ly, _lz) in enumerate(pose.landmarks):
+                px = int(np.clip(lx * width, 0, width - 1))
+                py = int(np.clip(ly * height, 0, height - 1))
+                pixel_landmarks.append((px, py, pose.visibility[idx]))
+
+            # Draw pose skeleton using MediaPipe's landmark connections
+            for connection in self.mp_pose.POSE_CONNECTIONS:
+                start_idx, end_idx = connection
+                if start_idx >= len(pixel_landmarks) or end_idx >= len(pixel_landmarks):
+                    continue
+
+                sx, sy, s_vis = pixel_landmarks[start_idx]
+                ex, ey, e_vis = pixel_landmarks[end_idx]
+
+                if s_vis > 0.5 and e_vis > 0.5:
+                    cv2.line(annotated_frame, (sx, sy), (ex, ey), color, 2)
+
+            # Draw keypoints for high-visibility landmarks
+            for px, py, visibility in pixel_landmarks:
+                if visibility > 0.5:
+                    cv2.circle(annotated_frame, (px, py), 3, color, -1)
         
         return annotated_frame
     
