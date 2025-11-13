@@ -302,15 +302,6 @@ For questions or collaboration:
 
 ---
 
-## 🏆 Built for Hackathons
-
-This project demonstrates:
-- ⚡ Rapid prototyping (0 → demo in 24h)
-- 🧠 Applied AI/ML in sports tech
-- 🎨 Clean, production-ready code
-- 📈 Scalable architecture
-- 🚀 Real-world problem solving
-
 **Ready to revolutionize fight sports with AI!** 🥊🤖
 <!-- =======
 # NeuroCombat-V7
