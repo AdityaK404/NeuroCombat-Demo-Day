@@ -80,6 +80,10 @@ class PoseExtractor:
             "spatial_strategy_used": []  # Track when spatial splitting was used
         }
         
+        # Coordinate smoothing state (EMA filter with alpha=0.6)
+        self.smoothed_keypoints = {"player_1": None, "player_2": None}
+        self.smoothing_alpha = 0.6
+        
     def extract_poses_from_video(
         self, 
         video_path: str,
@@ -284,7 +288,7 @@ class PoseExtractor:
         
         # FIX P3.2: Optimized detection strategy
         # Step 1: Try detecting from full frame first
-        full_frame_poses = self._detect_single_pose(rgb_frame, (0, 0), frame_shape)
+        full_frame_poses = self._detect_single_pose(rgb_frame, (0, 0), frame_shape, (w, h))
         
         # If we found 2 poses in full frame, we're done (unlikely with MediaPipe but possible)
         if len(full_frame_poses) >= 2:
@@ -298,11 +302,11 @@ class PoseExtractor:
             
             # Left half detection
             left_crop = rgb_frame[:, :mid_x + overlap]
-            left_poses = self._detect_single_pose(left_crop, (0, 0), (h, mid_x + overlap, 3))
+            left_poses = self._detect_single_pose(left_crop, (0, 0), (h, mid_x + overlap, 3), (w, h))
             
             # Right half detection
             right_crop = rgb_frame[:, mid_x - overlap:]
-            right_poses = self._detect_single_pose(right_crop, (0, mid_x - overlap), (h, w - mid_x + overlap, 3))
+            right_poses = self._detect_single_pose(right_crop, (0, mid_x - overlap), (h, w - mid_x + overlap, 3), (w, h))
             
             # Merge all detections
             all_poses = full_frame_poses + left_poses + right_poses
@@ -363,7 +367,7 @@ class PoseExtractor:
         return unique_poses
     
     def _detect_single_pose(self, rgb_crop: np.ndarray, offset: Tuple[int, int], 
-                           crop_shape: tuple) -> List[Pose]:
+                           crop_shape: tuple, frame_dims: Tuple[int, int]) -> List[Pose]:
         """
         Detect a single pose in a cropped region
         
@@ -371,6 +375,7 @@ class PoseExtractor:
             rgb_crop: RGB crop of frame
             offset: (x_offset, y_offset) of crop in original frame
             crop_shape: Shape of crop (h, w, c) - NOT USED, gets actual dimensions from rgb_crop
+            frame_dims: (width, height) of the full original frame for proper coordinate bounds
             
         Returns:
             List containing detected Pose (empty if none)
@@ -384,24 +389,36 @@ class PoseExtractor:
         
         landmarks = results.pose_landmarks.landmark
         
-        # FIX P3.1: Get actual crop dimensions from the cropped frame, not from crop_shape parameter
-        # This ensures correct coordinate scaling before applying offsets
+        # Get actual crop dimensions from the cropped frame
         crop_h, crop_w = rgb_crop.shape[:2]
         x_offset, y_offset = offset
         
+        # Get actual full frame dimensions
+        full_w, full_h = frame_dims
+        
         # Convert normalized landmarks to pixel coordinates (with offset)
         keypoints = []
-        for lm in landmarks:
+        coord_overflow_count = 0
+        
+        for idx, lm in enumerate(landmarks):
             # Scale by actual crop dimensions, then add offset to map to original frame
             x = int(lm.x * crop_w) + x_offset
             y = int(lm.y * crop_h) + y_offset
+            
+            # Clip coordinates to frame bounds and log overflow
+            if x < 0 or x >= full_w or y < 0 or y >= full_h:
+                coord_overflow_count += 1
+                x = np.clip(x, 0, full_w - 1)
+                y = np.clip(y, 0, full_h - 1)
+            
             visibility = lm.visibility
             keypoints.append([x, y, visibility])
         
-        # Calculate bounding box and centroid (using full frame dimensions)
-        # Get full frame dimensions from offset + crop size
-        full_w = max(crop_w + x_offset, crop_w)
-        full_h = max(crop_h + y_offset, crop_h)
+        # Log coordinate overflow warning if detected
+        if coord_overflow_count > 0 and self.verbose_logging:
+            print(f"  ⚠️  Frame {self.frame_count}: {coord_overflow_count}/33 keypoints clipped to frame bounds")
+        
+        # Calculate bounding box and centroid (using actual full frame dimensions)
         bbox = self._calculate_bbox(keypoints, full_w, full_h)
         centroid = self._calculate_centroid(keypoints)
         
@@ -539,12 +556,14 @@ class PoseExtractor:
         return result
     
     def _draw_overlay(self, frame: np.ndarray, player_poses: Dict[str, Optional[Pose]]) -> np.ndarray:
-        """Draw colored skeleton overlay on frame"""
+        """Draw colored skeleton overlay on frame with coordinate validation and smoothing"""
         overlay = frame.copy()
+        h, w = overlay.shape[:2]
         
+        # Player colors: Player 1 = 🔴 Red, Player 2 = 🔵 Blue
         colors = {
-            "player_1": (0, 0, 255),    # Red
-            "player_2": (255, 0, 0)     # Blue
+            "player_1": (0, 0, 255),    # Red (BGR format)
+            "player_2": (255, 0, 0)     # Blue (BGR format)
         }
         
         for player_id, pose in player_poses.items():
@@ -552,36 +571,68 @@ class PoseExtractor:
                 continue
             
             color = colors[player_id]
-            keypoints = pose.keypoints
+            raw_keypoints = pose.keypoints
             
-            # Draw connections
+            # Apply exponential moving average (EMA) smoothing for stable rendering
+            if self.smoothed_keypoints[player_id] is None:
+                # Initialize smoothed state
+                smoothed_kpts = [[kp[0], kp[1], kp[2]] for kp in raw_keypoints]
+            else:
+                # Apply EMA: smoothed = alpha * new + (1-alpha) * smoothed
+                smoothed_kpts = []
+                prev_smooth = self.smoothed_keypoints[player_id]
+                for i, (x, y, vis) in enumerate(raw_keypoints):
+                    if vis > 0.5:  # Only smooth visible keypoints
+                        prev_x, prev_y, _ = prev_smooth[i]
+                        smooth_x = self.smoothing_alpha * x + (1 - self.smoothing_alpha) * prev_x
+                        smooth_y = self.smoothing_alpha * y + (1 - self.smoothing_alpha) * prev_y
+                        smoothed_kpts.append([smooth_x, smooth_y, vis])
+                    else:
+                        smoothed_kpts.append([x, y, vis])
+            
+            self.smoothed_keypoints[player_id] = smoothed_kpts
+            
+            # Clip all coordinates to frame bounds
+            clipped_keypoints = []
+            for kp in smoothed_kpts:
+                x_clip = int(np.clip(kp[0], 0, w - 1))
+                y_clip = int(np.clip(kp[1], 0, h - 1))
+                clipped_keypoints.append([x_clip, y_clip, kp[2]])
+            
+            # Draw connections (skeleton lines)
             for connection in self.POSE_CONNECTIONS:
                 start_idx, end_idx = connection
-                if start_idx < len(keypoints) and end_idx < len(keypoints):
-                    start_point = keypoints[start_idx]
-                    end_point = keypoints[end_idx]
+                if start_idx < len(clipped_keypoints) and end_idx < len(clipped_keypoints):
+                    start_point = clipped_keypoints[start_idx]
+                    end_point = clipped_keypoints[end_idx]
                     
+                    # Only draw if both endpoints are visible
                     if start_point[2] > 0.5 and end_point[2] > 0.5:
                         cv2.line(
                             overlay,
-                            (int(start_point[0]), int(start_point[1])),
-                            (int(end_point[0]), int(end_point[1])),
+                            (start_point[0], start_point[1]),
+                            (end_point[0], end_point[1]),
                             color,
                             2
                         )
             
-            # Draw keypoints
-            for kp in keypoints:
-                if kp[2] > 0.5:
-                    cv2.circle(overlay, (int(kp[0]), int(kp[1])), 3, color, -1)
+            # Draw keypoints (joint circles)
+            for kp in clipped_keypoints:
+                if kp[2] > 0.5:  # Only draw visible keypoints
+                    cv2.circle(overlay, (kp[0], kp[1]), 3, color, -1)
             
-            # Draw bounding box
-            x, y, w, h = pose.bbox
-            cv2.rectangle(overlay, (x, y), (x + w, y + h), color, 2)
+            # Draw bounding box with bounds checking
+            x, y, bbox_w, bbox_h = pose.bbox
+            x = int(np.clip(x, 0, w - 1))
+            y = int(np.clip(y, 0, h - 1))
+            x2 = int(np.clip(x + bbox_w, 0, w))
+            y2 = int(np.clip(y + bbox_h, 0, h))
+            cv2.rectangle(overlay, (x, y), (x2, y2), color, 2)
             
-            # Draw label
+            # Draw player label with background for better visibility
             label = f"{player_id.replace('_', ' ').title()} ({pose.confidence:.2f})"
-            cv2.putText(overlay, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+            label_y = max(y - 10, 15)  # Prevent label from going off-screen
+            cv2.putText(overlay, label, (x, label_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
         
         # Frame counter
         cv2.putText(overlay, f"Frame: {self.frame_count}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)

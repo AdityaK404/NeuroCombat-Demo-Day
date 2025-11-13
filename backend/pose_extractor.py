@@ -175,49 +175,65 @@ class PoseExtractor:
             Annotated frame
         """
         annotated_frame = frame.copy()
-        height, width = annotated_frame.shape[:2]
+        h, w = annotated_frame.shape[:2]
         
         for pose in poses:
+            # Define color based on player ID: Player 1 = Red, Player 2 = Blue
+            if pose.player_id == 1:
+                color = (0, 0, 255)  # Red in BGR
+            elif pose.player_id == 2:
+                color = (255, 0, 0)  # Blue in BGR
+            else:
+                color = (0, 255, 0)  # Green for untracked
+            
             # Draw bounding box
-            x, y, w, h = pose.bbox
-            color = (0, 255, 0) if pose.player_id == 1 else (255, 0, 0)
-            cv2.rectangle(annotated_frame, (x, y), (x + w, y + h), color, 2)
+            x, y, bbox_w, bbox_h = pose.bbox
+            cv2.rectangle(annotated_frame, (x, y), (x + bbox_w, y + bbox_h), color, 2)
             
             # Draw player label
             label = f"Player {pose.player_id}" if pose.player_id > 0 else "Untracked"
             cv2.putText(
                 annotated_frame,
                 label,
-                (x, y - 10),
+                (x, max(y - 10, 15)),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.9,
                 color,
                 2,
             )
             
-            # Convert normalized landmarks to pixel coordinates once per pose
+            # Convert normalized landmarks to pixel coordinates
             pixel_landmarks = []
-            for idx, (lx, ly, _lz) in enumerate(pose.landmarks):
-                px = int(np.clip(lx * width, 0, width - 1))
-                py = int(np.clip(ly * height, 0, height - 1))
-                pixel_landmarks.append((px, py, pose.visibility[idx]))
-
-            # Draw pose skeleton using MediaPipe's landmark connections
+            for idx in range(len(pose.landmarks)):
+                lx, ly, lz = pose.landmarks[idx]
+                vis = pose.visibility[idx]
+                
+                # Convert normalized (0-1) to pixel coordinates
+                px = int(np.clip(lx * w, 0, w - 1))
+                py = int(np.clip(ly * h, 0, h - 1))
+                
+                pixel_landmarks.append((px, py, vis))
+            
+            # Draw skeleton connections using MediaPipe's POSE_CONNECTIONS
             for connection in self.mp_pose.POSE_CONNECTIONS:
                 start_idx, end_idx = connection
+                
                 if start_idx >= len(pixel_landmarks) or end_idx >= len(pixel_landmarks):
                     continue
-
-                sx, sy, s_vis = pixel_landmarks[start_idx]
-                ex, ey, e_vis = pixel_landmarks[end_idx]
-
-                if s_vis > 0.5 and e_vis > 0.5:
-                    cv2.line(annotated_frame, (sx, sy), (ex, ey), color, 2)
-
-            # Draw keypoints for high-visibility landmarks
-            for px, py, visibility in pixel_landmarks:
-                if visibility > 0.5:
-                    cv2.circle(annotated_frame, (px, py), 3, color, -1)
+                
+                start_x, start_y, start_vis = pixel_landmarks[start_idx]
+                end_x, end_y, end_vis = pixel_landmarks[end_idx]
+                
+                # Only draw connection if both keypoints are visible
+                if start_vis > 0.5 and end_vis > 0.5:
+                    cv2.line(annotated_frame, (start_x, start_y), (end_x, end_y), color, 2)
+            
+            # Draw keypoint circles for high-visibility landmarks
+            for px, py, vis in pixel_landmarks:
+                if vis > 0.5:
+                    cv2.circle(annotated_frame, (px, py), 4, color, -1)
+                    # Optional: draw outer circle for emphasis
+                    cv2.circle(annotated_frame, (px, py), 6, color, 1)
         
         return annotated_frame
     
