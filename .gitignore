@@ -1,2 +1,22 @@
 .github/instructions/kluster-code-verify.instructions.md
 .kluster
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Local artifacts and uploads
+artifacts/
+output/
+temp_uploads/
+
+# Large datasets kept locally
+data/raw/
+data/processed/
+
+# Streamlit cache
+.streamlit/
+
+# IDE & OS files
+.vscode/
+*.DS_Store
