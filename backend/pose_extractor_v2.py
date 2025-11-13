@@ -23,6 +23,35 @@ from scipy.optimize import linear_sum_assignment
 from tqdm import tqdm
 
 
+def to_py(obj):
+    """
+    Universal sanitizer: Convert NumPy types to native Python types for JSON serialization.
+    
+    Handles np.int64, np.float32, np.ndarray, and nested structures (lists, tuples, dicts).
+    Compatible with NumPy 1.x and 2.x.
+    """
+    # Check for NumPy integer types (np.int64, np.int32, etc.)
+    if isinstance(obj, np.integer):
+        return int(obj)
+    # Check for NumPy floating types (np.float64, np.float32, etc.)
+    if isinstance(obj, np.floating):
+        return float(obj)
+    # Check for NumPy arrays
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    # Handle tuples recursively
+    if isinstance(obj, tuple):
+        return tuple(to_py(x) for x in obj)
+    # Handle lists recursively
+    if isinstance(obj, list):
+        return [to_py(x) for x in obj]
+    # Handle dicts recursively
+    if isinstance(obj, dict):
+        return {k: to_py(v) for k, v in obj.items()}
+    # Return primitives as-is
+    return obj
+
+
 @dataclass
 class Pose:
     """Represents a single pose detection with keypoints"""
@@ -257,8 +286,17 @@ class PoseExtractor:
         if output_json:
             output_path = Path(output_json)
             output_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Debug: Check for non-serializable types before sanitization
+            for k, v in pose_data.items():
+                if isinstance(v, np.generic):
+                    print(f"⚠️  Non-serializable type found: {type(v)} at {k}")
+            
+            # Sanitize all NumPy types to native Python types
+            sanitized = to_py(pose_data)
+            
             with open(output_path, 'w') as f:
-                json.dump(pose_data, f, indent=2)
+                json.dump(sanitized, f, indent=2)
             print(f"\n💾 Pose data saved → {output_path}")
         
         if overlay_video:
@@ -412,7 +450,7 @@ class PoseExtractor:
                 y = np.clip(y, 0, full_h - 1)
             
             visibility = lm.visibility
-            keypoints.append([x, y, visibility])
+            keypoints.append([float(x), float(y), float(visibility)])
         
         # Log coordinate overflow warning if detected
         if coord_overflow_count > 0 and self.verbose_logging:
@@ -454,6 +492,7 @@ class PoseExtractor:
         x_max = min(width, x_max + padding)
         y_max = min(height, y_max + padding)
         
+        # Ensure native Python ints for JSON serialization
         return (int(x_min), int(y_min), int(x_max - x_min), int(y_max - y_min))
     
     def _calculate_centroid(self, keypoints: List) -> Tuple[float, float]:
@@ -474,6 +513,7 @@ class PoseExtractor:
             else:
                 cx, cy = 0, 0
         
+        # Ensure native Python floats for JSON serialization
         return (float(cx), float(cy))
     
     def _track_players(self, poses: List[Pose]) -> Dict[str, Optional[Pose]]:
