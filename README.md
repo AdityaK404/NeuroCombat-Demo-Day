@@ -1,5 +1,5 @@
 <!-- <<<<<<< HEAD -->
-# 🥊 NeuroCombat - AI-Powered MMA Fight Commentary System
+# NeuroCombat - AI-Powered MMA Fight Commentary System
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -8,7 +8,7 @@
 
 ---
 
-## 🌟 Features
+## Features
 
 - **Dual Fighter Tracking**: Automatically detects and tracks both fighters (Player 1 & Player 2)
 - **Pose Extraction**: Uses MediaPipe for robust human pose estimation
@@ -61,7 +61,7 @@ pip install -r requirements.txt
 
 ---
 
-## 💻 Usage
+## Usage
 
 ### Option 1: Web UI (Recommended for Demo)
 
@@ -112,7 +112,7 @@ python main.py --video fight.mp4 --no-save-video
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 NeuroCombat/
@@ -142,7 +142,7 @@ NeuroCombat/
 
 ---
 
-## 🎯 How It Works
+## How It Works
 
 ### Pipeline Architecture
 
@@ -177,7 +177,7 @@ NeuroCombat/
 
 ---
 
-## 🔬 Technical Deep Dive: Dual-Fighter Detection
+## Technical Deep Dive: Dual-Fighter Detection
 
 ### MediaPipe Pose Configuration
 
@@ -343,7 +343,7 @@ cv2.putText(frame, f"Player {player_id} ({confidence:.2f})",
 
 ---
 
-## 🎨 Supported Moves
+## Supported Moves
 
 | Move | Detection Criteria | Example Commentary |
 |------|-------------------|-------------------|
@@ -356,7 +356,7 @@ cv2.putText(frame, f"Player {player_id} ({confidence:.2f})",
 
 ---
 
-## 🔧 Configuration
+## Configuration
 
 Edit `config.py` to customize system behavior:
 
@@ -377,7 +377,7 @@ COMBO_WINDOW = 3.0  # Seconds
 
 ---
 
-## 🎓 For Hackathon Judges
+## For Hackathon Judges
 
 ### Demo Instructions (5 Minutes)
 
@@ -391,15 +391,15 @@ COMBO_WINDOW = 3.0  # Seconds
 
 ### Key Highlights
 
-- ✅ **End-to-End Pipeline**: From raw video to AI commentary
-- ✅ **Real-Time Capable**: ~15-20 FPS on CPU
-- ✅ **Modular Architecture**: Easy to extend with new moves/models
-- ✅ **Production-Ready**: Clean code, comprehensive docstrings
-- ✅ **Scalable Design**: Ready for cloud deployment
+- **End-to-End Pipeline**: From raw video to AI commentary
+- **Real-Time Capable**: ~15-20 FPS on CPU
+- **Modular Architecture**: Easy to extend with new moves/models
+- **Production-Ready**: Clean code, comprehensive docstrings
+- **Scalable Design**: Ready for cloud deployment
 
 ---
 
-## 🚧 Future Enhancements
+## Future Enhancements
 
 ### Short-Term (Week 1-2)
 - [ ] Train actual LSTM/Transformer classifier on Harmony4D dataset
@@ -421,7 +421,7 @@ COMBO_WINDOW = 3.0  # Seconds
 
 ---
 
-## 📊 Dataset Strategy
+## Dataset Strategy
 
 | Dataset | Purpose | Size | Status |
 |---------|---------|------|--------|
@@ -432,7 +432,7 @@ COMBO_WINDOW = 3.0  # Seconds
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions welcome! Please follow these steps:
 
@@ -444,13 +444,13 @@ Contributions welcome! Please follow these steps:
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **MediaPipe** for pose detection framework
 - **Streamlit** for rapid UI development
@@ -459,7 +459,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-## 📧 Contact
+## Contact
 
 For questions or collaboration:
 - **Project**: NeuroCombat
@@ -468,7 +468,7 @@ For questions or collaboration:
 
 ---
 
-**Ready to revolutionize fight sports with AI!** 🥊🤖
+**Ready to revolutionize fight sports with AI!**
 <!-- =======
 # NeuroCombat-V7
 >>>>>>> a5381037028cf1db41fad1a2e67b18f670d309ea -->
