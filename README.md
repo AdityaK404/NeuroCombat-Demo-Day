@@ -459,15 +459,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-## Contact
-
-For questions or collaboration:
-- **Project**: NeuroCombat
-- **GitHub**: [Your GitHub Profile]
-- **Email**: [Your Email]
-
----
-
 **Ready to revolutionize fight sports with AI!**
 <!-- =======
 # NeuroCombat-V7
